@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0f172a" />
+<title>Flow Auto Body — Stock Scanner</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --line:#334155;
+    --text:#f1f5f9; --muted:#94a3b8; --accent:#3b82f6;
+    --in:#22c55e; --out:#f97316; --danger:#ef4444; --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; min-height:100dvh;
+  }
+  header{
+    padding:14px 18px; background:var(--panel);
+    border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10;
+  }
+  header .logo{
+    width:34px;height:34px;border-radius:9px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;
+  }
+  header h1{font-size:16px;margin:0;font-weight:700;line-height:1.1;}
+  header .sub{font-size:12px;color:var(--muted);}
+  header .who{margin-left:auto;font-size:12px;color:var(--muted);text-align:right;}
+  main{flex:1; padding:18px; padding-bottom:90px; width:100%; max-width:560px; margin:0 auto;}
+  .screen{display:none;} .screen.active{display:block; animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  h2{font-size:20px;margin:0 0 4px;}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 20px;}
+
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;border:none;border-radius:var(--radius);padding:18px;
+    font-size:17px;font-weight:700;color:#fff;background:var(--accent);
+    cursor:pointer;margin-bottom:14px;transition:transform .06s ease, filter .15s;
+  }
+  .btn:active{transform:scale(.98);}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
+  .btn.in{background:var(--in);} .btn.out{background:var(--out);}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger);font-weight:600;}
+  .btn.small{padding:12px;font-size:15px;margin-bottom:0;}
+  .btn .big{font-size:26px;}
+  .btn-sub{font-size:12px;font-weight:500;opacity:.85;display:block;margin-top:2px;}
+
+  input,select{
+    width:100%;padding:15px;font-size:16px;border-radius:12px;
+    background:var(--panel);border:1px solid var(--line);color:var(--text);margin-bottom:14px;
+  }
+  label{display:block;font-size:13px;color:var(--muted);margin:0 0 6px;font-weight:600;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+  .row{display:flex;gap:12px;} .row>*{flex:1;}
+
+  #reader{width:100%;border-radius:var(--radius);overflow:hidden;background:#000;min-height:260px;}
+  .scan-hint{text-align:center;color:var(--muted);font-size:13px;margin:12px 0;}
+  .manual{display:flex;gap:8px;align-items:flex-end;}
+  .manual input{margin-bottom:0;}
+
+  .item-photo{width:100%;height:200px;object-fit:cover;border-radius:12px;background:var(--panel2);margin-bottom:12px;}
+  .photo-drop{
+    width:100%;height:180px;border:2px dashed var(--line);border-radius:12px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:var(--muted);gap:8px;cursor:pointer;margin-bottom:14px;background:var(--panel);text-align:center;
+  }
+  .photo-drop img{width:100%;height:100%;object-fit:cover;border-radius:10px;}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;}
+  .badge.in{background:rgba(34,197,94,.15);color:var(--in);}
+  .badge.out{background:rgba(249,115,22,.15);color:var(--out);}
+  .badge.mono{background:var(--panel2);color:var(--muted);font-family:ui-monospace,monospace;font-weight:600;}
+
+  .qty-stepper{display:flex;align-items:center;gap:0;margin-bottom:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .qty-stepper button{width:60px;height:56px;font-size:26px;background:var(--panel2);color:var(--text);border:none;cursor:pointer;}
+  .qty-stepper input{text-align:center;font-size:22px;font-weight:700;border:none;border-radius:0;margin:0;border-left:1px solid var(--line);border-right:1px solid var(--line);}
+
+  .list-item{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;}
+  .list-item img{width:56px;height:56px;border-radius:10px;object-fit:cover;background:var(--panel2);flex-shrink:0;}
+  .list-item .info{flex:1;min-width:0;}
+  .list-item .info .nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-item .info .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .list-item .qty{font-size:22px;font-weight:800;text-align:right;}
+  .list-item .qty small{display:block;font-size:10px;color:var(--muted);font-weight:600;}
+
+  .log-row{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .log-row:last-child{border-bottom:none;}
+  .log-row .g{flex:1;min-width:0;} .log-row .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .log-row .t{font-size:12px;color:var(--muted);}
+
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;}
+  .empty .big{font-size:38px;margin-bottom:8px;}
+
+  .toolbar{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--line);
+    display:flex;padding:8px;gap:6px;z-index:20;padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+  .toolbar button{flex:1;background:transparent;border:none;color:var(--muted);font-size:11px;font-weight:600;
+    padding:8px 4px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .toolbar button .ic{font-size:20px;}
+  .toolbar button.active{color:var(--accent);background:var(--panel2);}
+
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#fff;color:#0f172a;
+    padding:12px 20px;border-radius:12px;font-weight:600;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4);
+    z-index:100;opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;white-space:nowrap;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+  .toast.in{background:var(--in);color:#fff;} .toast.out{background:var(--out);color:#fff;}
+  .hidden{display:none!important;}
+  .backlink{background:none;border:none;color:var(--accent);font-size:15px;font-weight:600;padding:0;margin-bottom:16px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">F</div>
+  <div>
+    <h1>Flow Stock Scanner</h1>
+    <div class="sub">Body &amp; Paint inventory</div>
+  </div>
+  <div class="who" id="whoami"></div>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section class="screen active" id="s-login">
+    <h2>Sign in</h2>
+    <p class="lead">Enter your name to start logging stock.</p>
+    <label>Your name</label>
+    <input id="login-name" type="text" placeholder="Shane" autocomplete="name" />
+    <button class="btn" onclick="login()">Log in</button>
+  </section>
+
+  <!-- HOME -->
+  <section class="screen" id="s-home">
+    <h2 id="home-greet">Hi Shane 👋</h2>
+    <p class="lead">What do you want to do?</p>
+    <button class="btn" style="padding:26px" onclick="go('action')">
+      <span class="big">📦</span>
+      <span>Inventory<span class="btn-sub">Scan stock in or out</span></span>
+    </button>
+    <button class="btn ghost" onclick="go('inventory')">
+      <span class="big">🗂️</span>
+      <span>View inventory<span class="btn-sub" id="home-count">0 items on file</span></span>
+    </button>
+  </section>
+
+  <!-- CHOOSE ACTION -->
+  <section class="screen" id="s-action">
+    <button class="backlink" onclick="go('home')">‹ Back</button>
+    <h2>Inventory</h2>
+    <p class="lead">Are you taking stock out or putting stock in?</p>
+    <button class="btn out" style="padding:26px" onclick="startScan('out')">
+      <span class="big">📤</span>
+      <span>Take stock OUT<span class="btn-sub">Using / removing items</span></span>
+    </button>
+    <button class="btn in" style="padding:26px" onclick="startScan('in')">
+      <span class="big">📥</span>
+      <span>Put stock IN<span class="btn-sub">New delivery / returning items</span></span>
+    </button>
+  </section>
+
+  <!-- SCANNER -->
+  <section class="screen" id="s-scan">
+    <button class="backlink" onclick="stopScanAndGo('action')">‹ Back</button>
+    <h2 id="scan-title">Scan barcode</h2>
+    <p class="lead" id="scan-mode-lead"></p>
+    <div id="reader"></div>
+    <p class="scan-hint">Point the camera at the barcode. Hold steady.</p>
+    <label>Or type the barcode manually</label>
+    <div class="manual">
+      <input id="manual-code" type="text" inputmode="numeric" placeholder="e.g. 9310072011129" />
+      <button class="btn small" style="width:auto;padding:15px 20px;" onclick="manualEntry()">Go</button>
+    </div>
+  </section>
+
+  <!-- REGISTER NEW ITEM -->
+  <section class="screen" id="s-register">
+    <button class="backlink" onclick="cancelToScan()">‹ Back</button>
+    <h2>New item</h2>
+    <p class="lead">First time we've seen this barcode. Add a photo and details — it'll be remembered from now on.</p>
+    <div class="card">
+      <span class="badge mono" id="reg-code"></span>
+    </div>
+    <label>Photo of the item</label>
+    <label class="photo-drop" id="reg-photo-drop" for="reg-photo-input">
+      <span class="big" style="font-size:34px">📷</span>
+      <span>Tap to take a photo</span>
+    </label>
+    <input id="reg-photo-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="onPhoto(event)" />
+    <label>Item name / description</label>
+    <input id="reg-name" type="text" placeholder="e.g. 3M Masking Tape 48mm" />
+    <label>Shelf / location</label>
+    <input id="reg-shelf" type="text" placeholder="e.g. Paint shop — Bay 3, Shelf B" />
+    <label id="reg-qty-label">Starting quantity going in</label>
+    <div class="qty-stepper">
+      <button type="button" onclick="stepQty('reg-qty',-1)">−</button>
+      <input id="reg-qty" type="number" value="1" min="0" inputmode="numeric" />
+      <button type="button" onclick="stepQty('reg-qty',1)">+</button>
+    </div>
+    <button class="btn" onclick="saveNewItem()">Save item &amp; log</button>
+  </section>
+
+  <!-- EXISTING ITEM: LOG -->
+  <section class="screen" id="s-log">
+    <button class="backlink" onclick="cancelToScan()">‹ Back</button>
+    <h2 id="log-title">Log stock</h2>
+    <img class="item-photo" id="log-photo" alt="item" />
+    <div class="card">
+      <div style="font-weight:700;font-size:17px" id="log-name"></div>
+      <div style="color:var(--muted);font-size:13px;margin-top:4px" id="log-shelf"></div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+        <span class="badge mono" id="log-code"></span>
+        <span style="margin-left:auto;font-size:13px;color:var(--muted)">In stock:</span>
+        <span style="font-size:20px;font-weight:800" id="log-current">0</span>
+      </div>
+    </div>
+    <label id="log-qty-label">Quantity</label>
+    <div class="qty-stepper">
+      <button type="button" onclick="stepQty('log-qty',-1)">−</button>
+      <input id="log-qty" type="number" value="1" min="0" inputmode="numeric" />
+      <button type="button" onclick="stepQty('log-qty',1)">+</button>
+    </div>
+    <button class="btn" id="log-confirm" onclick="confirmLog()">Confirm</button>
+    <button class="btn ghost small" onclick="stopScanAndGo('action')" style="margin-top:4px">Scan another</button>
+  </section>
+
+  <!-- INVENTORY LIST -->
+  <section class="screen" id="s-inventory">
+    <button class="backlink" onclick="go('home')">‹ Back</button>
+    <h2>Inventory</h2>
+    <input id="inv-search" type="text" placeholder="Search name, shelf or barcode…" oninput="renderInventory()" />
+    <div id="inv-list"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="screen" id="s-history">
+    <button class="backlink" onclick="go('home')">‹ Back</button>
+    <h2>Activity log</h2>
+    <p class="lead">Every stock in/out, most recent first.</p>
+    <div class="card" id="hist-list"></div>
+  </section>
+
+  <!-- SETTINGS / DATA -->
+  <section class="screen" id="s-data">
+    <button class="backlink" onclick="go('home')">‹ Back</button>
+    <h2>Data &amp; settings</h2>
+    <p class="lead">Signed in as <b id="data-user"></b>. All data is stored on this device only.</p>
+    <button class="btn ghost small" onclick="exportJSON()">⬇︎ Export all data (JSON)</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost small" onclick="exportCSV()">⬇︎ Export activity log (CSV)</button>
+    <div style="height:10px"></div>
+    <button class="btn ghost small" onclick="switchUser()">Switch user</button>
+    <div style="height:20px"></div>
+    <button class="btn danger" onclick="wipeData()">Erase all data on this device</button>
+  </section>
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="toolbar hidden" id="toolbar">
+  <button data-nav="home" class="active" onclick="go('home')"><span class="ic">🏠</span>Home</button>
+  <button data-nav="action" onclick="go('action')"><span class="ic">📦</span>Scan</button>
+  <button data-nav="inventory" onclick="go('inventory')"><span class="ic">🗂️</span>Items</button>
+  <button data-nav="history" onclick="go('history')"><span class="ic">🕑</span>Log</button>
+  <button data-nav="data" onclick="go('data')"><span class="ic">⚙️</span>Data</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Flow Auto Body — Stock Scanner (standalone prototype)
+   Single-file web app. Data persists locally via IndexedDB.
+   Structure kept modular so the DB + scan flow port into the
+   main workflow app later.
+   ============================================================ */
+
+/* ---------- IndexedDB layer ---------- */
+const DB = (() => {
+  const NAME = 'flow_stock', VER = 1;
+  let db = null;
+  function open(){
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(NAME, VER);
+      r.onupgradeneeded = e => {
+        const d = e.target.result;
+        if(!d.objectStoreNames.contains('items'))
+          d.createObjectStore('items', { keyPath:'barcode' });
+        if(!d.objectStoreNames.contains('tx')){
+          const s = d.createObjectStore('tx', { keyPath:'id', autoIncrement:true });
+          s.createIndex('barcode','barcode',{unique:false});
+        }
+      };
+      r.onsuccess = e => { db = e.target.result; res(db); };
+      r.onerror = e => rej(e.target.error);
+    });
+  }
+  function tx(store, mode){ return db.transaction(store, mode).objectStore(store); }
+  const put  = (store,val)=> new Promise((res,rej)=>{const q=tx(store,'readwrite').put(val);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+  const get  = (store,key)=> new Promise((res,rej)=>{const q=tx(store,'readonly').get(key);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});
+  const all  = (store)=> new Promise((res,rej)=>{const q=tx(store,'readonly').getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>rej(q.error);});
+  const clear= (store)=> new Promise((res,rej)=>{const q=tx(store,'readwrite').clear();q.onsuccess=()=>res();q.onerror=()=>rej(q.error);});
+  return { open, put, get, all, clear };
+})();
+
+/* ---------- App state ---------- */
+const state = { user:null, mode:null, pendingCode:null };
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
+function toast(msg, type){
+  const t = $('toast'); t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(t._t); t._t = setTimeout(()=> t.className='toast', 1800);
+}
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function stepQty(id, delta){
+  const el = $(id); let v = parseInt(el.value||'0',10)+delta;
+  if(v<0) v=0; el.value=v;
+}
+
+/* ---------- Navigation ---------- */
+const SCREENS = ['login','home','action','scan','register','log','inventory','history','data'];
+function go(name){
+  if(name==='scan') return; // scan entered only via startScan
+  if(scanner && name!=='register' && name!=='log') stopScanner();
+  SCREENS.forEach(s => $('s-'+s).classList.toggle('active', s===name));
+  const map = {home:'home',action:'action',inventory:'inventory',history:'history',data:'data'};
+  document.querySelectorAll('.toolbar button').forEach(b=>b.classList.toggle('active', b.dataset.nav===map[name]));
+  if(name==='inventory') renderInventory();
+  if(name==='history') renderHistory();
+  if(name==='home') refreshHomeCount();
+  window.scrollTo(0,0);
+}
+function showScreen(name){ SCREENS.forEach(s => $('s-'+s).classList.toggle('active', s===name)); window.scrollTo(0,0); }
+
+/* ---------- Auth (name only, local) ---------- */
+function login(){
+  const name = ($('login-name').value || '').trim();
+  if(!name){ toast('Enter your name'); return; }
+  state.user = name;
+  localStorage.setItem('flow_user', name);
+  onLoggedIn();
+}
+function onLoggedIn(){
+  $('whoami').textContent = state.user;
+  $('home-greet').textContent = 'Hi ' + state.user + ' 👋';
+  $('data-user').textContent = state.user;
+  $('toolbar').classList.remove('hidden');
+  refreshHomeCount();
+  go('home');
+}
+function switchUser(){
+  localStorage.removeItem('flow_user'); state.user=null;
+  $('toolbar').classList.add('hidden');
+  $('login-name').value='';
+  showScreen('login');
+}
+
+/* ---------- Scanning ---------- */
+let scanner = null;
+function startScan(mode){
+  state.mode = mode;
+  $('scan-title').textContent = mode==='in' ? 'Scan to put IN' : 'Scan to take OUT';
+  $('scan-mode-lead').innerHTML = mode==='in'
+    ? '<span class="badge in">STOCK IN</span> Scan each item you\'re adding.'
+    : '<span class="badge out">STOCK OUT</span> Scan each item you\'re taking.';
+  showScreen('scan');
+  document.querySelectorAll('.toolbar button').forEach(b=>b.classList.remove('active'));
+  launchScanner();
+}
+function launchScanner(){
+  if(typeof Html5Qrcode === 'undefined'){
+    toast('Scanner library not loaded — use manual entry'); return;
+  }
+  scanner = new Html5Qrcode('reader', { verbose:false });
+  const config = { fps:10, qrbox:{width:250,height:150},
+    formatsToSupport: undefined, // all supported 1D + 2D
+    experimentalFeatures:{ useBarCodeDetectorIfSupported:true } };
+  scanner.start({ facingMode:'environment' }, config, onScanSuccess, ()=>{})
+    .catch(err => {
+      console.warn('camera start failed', err);
+      toast('Camera unavailable — type the barcode below');
+    });
+}
+function stopScanner(){
+  if(scanner){
+    const s = scanner; scanner = null;
+    s.stop().then(()=>s.clear()).catch(()=>{});
+  }
+}
+function stopScanAndGo(name){ stopScanner(); go(name); }
+let _lastScan = 0;
+function onScanSuccess(code){
+  const now = Date.now();
+  if(now - _lastScan < 1500) return; // debounce repeat reads
+  _lastScan = now;
+  if(navigator.vibrate) navigator.vibrate(60);
+  handleCode(code.trim());
+}
+function manualEntry(){
+  const code = ($('manual-code').value||'').trim();
+  if(!code){ toast('Enter a barcode'); return; }
+  $('manual-code').value='';
+  handleCode(code);
+}
+
+/* ---------- Core: route a scanned barcode ---------- */
+async function handleCode(code){
+  state.pendingCode = code;
+  const item = await DB.get('items', code);
+  stopScanner();
+  if(item) openLog(item);
+  else openRegister(code);
+}
+
+/* ---------- Register a new item ---------- */
+let pendingPhoto = null;
+function openRegister(code){
+  pendingPhoto = null;
+  $('reg-code').textContent = code;
+  $('reg-name').value=''; $('reg-shelf').value='';
+  $('reg-qty').value = state.mode==='out' ? '1' : '1';
+  $('reg-qty-label').textContent = state.mode==='out' ? 'Quantity taken out' : 'Starting quantity going in';
+  const drop = $('reg-photo-drop');
+  drop.innerHTML = '<span class="big" style="font-size:34px">📷</span><span>Tap to take a photo</span>';
+  showScreen('register');
+}
+function onPhoto(e){
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    // downscale to keep storage small
+    const img = new Image();
+    img.onload = () => {
+      const max = 900, sc = Math.min(1, max/Math.max(img.width,img.height));
+      const c = document.createElement('canvas');
+      c.width = img.width*sc; c.height = img.height*sc;
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      pendingPhoto = c.toDataURL('image/jpeg', 0.7);
+      $('reg-photo-drop').innerHTML = '<img src="'+pendingPhoto+'" alt="preview" />';
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+async function saveNewItem(){
+  const code = state.pendingCode;
+  const name = ($('reg-name').value||'').trim();
+  const shelf = ($('reg-shelf').value||'').trim();
+  const qty = parseInt($('reg-qty').value||'0',10);
+  if(!name){ toast('Add an item name'); return; }
+  if(!pendingPhoto){ toast('Take a photo first'); return; }
+  const signedQty = state.mode==='out' ? -qty : qty;
+  const item = {
+    barcode: code, name, shelf, photo: pendingPhoto,
+    qty: signedQty, createdBy: state.user, createdAt: Date.now()
+  };
+  await DB.put('items', item);
+  await logTx(code, name, state.mode, qty);
+  toast((state.mode==='out'?'Took ':'Added ')+qty+' × '+name, state.mode);
+  afterLog();
+}
+
+/* ---------- Log an existing item ---------- */
+let currentItem = null;
+function openLog(item){
+  currentItem = item;
+  $('log-photo').src = item.photo || '';
+  $('log-name').textContent = item.name;
+  $('log-shelf').textContent = item.shelf || 'No shelf set';
+  $('log-code').textContent = item.barcode;
+  $('log-current').textContent = item.qty;
+  $('log-qty').value = 1;
+  const out = state.mode==='out';
+  $('log-title').innerHTML = out ? 'Take OUT <span class="badge out">OUT</span>' : 'Put IN <span class="badge in">IN</span>';
+  $('log-qty-label').textContent = out ? 'Quantity taking out' : 'Quantity putting in';
+  const btn = $('log-confirm');
+  btn.className = 'btn ' + (out?'out':'in');
+  btn.textContent = out ? 'Confirm — take out' : 'Confirm — put in';
+  showScreen('log');
+}
+async function confirmLog(){
+  const qty = parseInt($('log-qty').value||'0',10);
+  if(qty<=0){ toast('Quantity must be at least 1'); return; }
+  const delta = state.mode==='out' ? -qty : qty;
+  currentItem.qty = (currentItem.qty||0) + delta;
+  await DB.put('items', currentItem);
+  await logTx(currentItem.barcode, currentItem.name, state.mode, qty);
+  toast((state.mode==='out'?'Took ':'Added ')+qty+' × '+currentItem.name, state.mode);
+  afterLog();
+}
+
+/* ---------- Transaction log ---------- */
+async function logTx(barcode, name, mode, qty){
+  await DB.put('tx', { barcode, name, mode, qty, user:state.user, ts:Date.now() });
+}
+function afterLog(){
+  // straight back to scanning so techs can rattle through a delivery
+  refreshHomeCount();
+  startScan(state.mode);
+}
+function cancelToScan(){ startScan(state.mode); }
+
+/* ---------- Inventory list ---------- */
+async function renderInventory(){
+  const items = await DB.all('items');
+  const q = ($('inv-search').value||'').toLowerCase();
+  const filtered = items
+    .filter(i => !q || (i.name+' '+(i.shelf||'')+' '+i.barcode).toLowerCase().includes(q))
+    .sort((a,b)=> a.name.localeCompare(b.name));
+  const el = $('inv-list');
+  if(!filtered.length){
+    el.innerHTML = '<div class="empty"><div class="big">🗂️</div>'+(items.length?'No matches':'No items yet. Scan something to get started.')+'</div>';
+    return;
+  }
+  el.innerHTML = filtered.map(i => `
+    <div class="list-item">
+      <img src="${i.photo||''}" alt="">
+      <div class="info">
+        <div class="nm">${esc(i.name)}</div>
+        <div class="meta">${esc(i.shelf||'No shelf')} · <span style="font-family:ui-monospace,monospace">${esc(i.barcode)}</span></div>
+      </div>
+      <div class="qty" style="color:${i.qty>0?'var(--in)':i.qty<0?'var(--danger)':'var(--muted)'}">${i.qty}<small>in stock</small></div>
+    </div>`).join('');
+}
+function refreshHomeCount(){
+  DB.all('items').then(items=>{ $('home-count').textContent = items.length+' item'+(items.length===1?'':'s')+' on file'; });
+}
+
+/* ---------- History ---------- */
+async function renderHistory(){
+  const tx = await DB.all('tx');
+  tx.sort((a,b)=> b.ts - a.ts);
+  const el = $('hist-list');
+  if(!tx.length){ el.innerHTML = '<div class="empty"><div class="big">🕑</div>No activity yet.</div>'; return; }
+  el.innerHTML = tx.slice(0,300).map(t => `
+    <div class="log-row">
+      <span class="badge ${t.mode}">${t.mode==='out'?'OUT':'IN'}</span>
+      <div class="g">
+        <div class="nm">${esc(t.name)}</div>
+        <div class="t">${esc(t.user)} · ${fmtTime(t.ts)}</div>
+      </div>
+      <div style="font-weight:800;font-size:16px;color:${t.mode==='out'?'var(--out)':'var(--in)'}">${t.mode==='out'?'−':'+'}${t.qty}</div>
+    </div>`).join('');
+}
+
+/* ---------- Data export / wipe ---------- */
+function esc(s){ return (s==null?'':(''+s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function exportJSON(){
+  const [items, tx] = await Promise.all([DB.all('items'), DB.all('tx')]);
+  download('flow-stock-export.json', JSON.stringify({exportedAt:new Date().toISOString(), user:state.user, items, transactions:tx}, null, 2), 'application/json');
+  toast('Exported JSON');
+}
+async function exportCSV(){
+  const tx = await DB.all('tx');
+  tx.sort((a,b)=>b.ts-a.ts);
+  const rows = [['timestamp','type','quantity','item_name','barcode','user']];
+  tx.forEach(t=> rows.push([new Date(t.ts).toISOString(), t.mode, t.qty, t.name, t.barcode, t.user]));
+  const csv = rows.map(r=> r.map(v=> '"'+(''+v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  download('flow-stock-activity.csv', csv, 'text/csv');
+  toast('Exported CSV');
+}
+function download(filename, data, type){
+  const blob = new Blob([data], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+async function wipeData(){
+  if(!confirm('Erase ALL items and history on this device? This cannot be undone.')) return;
+  await DB.clear('items'); await DB.clear('tx');
+  toast('All data erased');
+  refreshHomeCount(); renderInventory();
+}
+
+/* ---------- Boot ---------- */
+(async function init(){
+  try { await DB.open(); }
+  catch(e){ alert('Could not open local storage: '+e.message); }
+  const saved = localStorage.getItem('flow_user');
+  if(saved){ state.user = saved; onLoggedIn(); }
+})();
+</script>
+</body>
+</html>
