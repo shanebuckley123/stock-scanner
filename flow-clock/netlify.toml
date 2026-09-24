@@ -1,0 +1,8 @@
+# If this app lives in a sub-folder of the repo, set Netlify's
+# "Base directory" to flow-clock (Site configuration > Build & deploy).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
