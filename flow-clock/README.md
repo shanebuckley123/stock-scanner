@@ -100,6 +100,18 @@ Voice notes and the camera need HTTPS on a phone — use the Netlify deploy (or
    `flowclock.netlify.app` or `clock.flowautobody.com.au`. **Decide this before
    writing the tags** — the URL is written onto every card.
 
+### Alternative: drag-and-drop (Netlify Drop)
+
+1. `npm run build` (or use the ready-made `flow-clock-netlify.zip`) — you get a
+   `dist` folder containing `index.html`, `config.js`, `_redirects`, `assets/`.
+2. Open `config.js` in Notepad/TextEdit and fill in `supabaseUrl` and
+   `supabaseAnonKey` (anon public key only). Save.
+3. Netlify → project **flow-clock** → **Deploys** → drag the whole folder onto
+   the "drag and drop your project folder here" box.
+4. To change settings later, edit `config.js` and drop the folder again.
+
+Build-time env vars (above) take priority over `config.js` if both are set.
+
 SPA routing is handled by `public/_redirects` (`/* /index.html 200`), so
 `/t/66` and `/clock` load the app directly when a tag is tapped.
 

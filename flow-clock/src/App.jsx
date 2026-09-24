@@ -16,7 +16,7 @@ export default function App() {
     return (
       <div className="content">
         <h1>Flow Clock isn’t configured</h1>
-        <p>Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> (see README), then rebuild.</p>
+        <p>Fill in <code>config.js</code> with the Supabase URL and anon key and re-upload, or set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> and rebuild (see README).</p>
       </div>
     )
   }

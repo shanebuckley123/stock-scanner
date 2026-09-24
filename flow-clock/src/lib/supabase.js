@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Build-time env vars (Netlify builds) win; otherwise public/config.js (drag-and-drop deploys).
+const runtime = (typeof window !== 'undefined' && window.FLOW_CLOCK_CONFIG) || {}
+const url = import.meta.env.VITE_SUPABASE_URL || runtime.supabaseUrl
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY || runtime.supabaseAnonKey
 
 export const configured = Boolean(url && key)
 
